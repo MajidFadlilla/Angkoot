@@ -1,0 +1,36 @@
+// Update for simulation script in backend to send random GPS updates every X seconds
+
+/* Added to backend/index.js */
+
+// At the bottom of index.js, after server.listen(...)
+
+// --- Simulation of vehicle movement ---
+function simulateVehicles() {
+  db.all('SELECT * FROM vehicles', (err, rows) => {
+    if (err) return;
+    rows.forEach(v => {
+      // small random walk around current coordinates
+      const lat = v.lat + (Math.random()-0.5) * 0.001;
+      const lng = v.lng + (Math.random()-0.5) * 0.001;
+      const heading = Math.random() * 360;
+      const ts = Math.floor(Date.now()/1000);
+      const stmt = db.prepare('UPDATE vehicles SET lat=?, lng=?, heading=?, last_seen=? WHERE id=?');
+      stmt.run(lat, lng, heading, ts, v.id, function(err2){
+        if (!err2) {
+          db.get('SELECT * FROM vehicles WHERE id = ?', [v.id], (err3, vehicle) => {
+            if (!err3 && vehicle) io.emit('vehicle:update', vehicle);
+          });
+        }
+      });
+    });
+  });
+}
+
+setInterval(simulateVehicles, 5000); // update every 5 seconds
+
+/*
+Instructions:
+- Jalankan backend (node index.js)
+- Kendaraan akan otomatis bergerak sedikit setiap 5 detik.
+- Frontend akan menerima update via socket.io dan marker kendaraan berpindah.
+*/
